@@ -12,7 +12,7 @@ Since the algorithmic complexity for beta signature is O(beta*n*n) due to matrix
 ![Data Source](/datasrc.png)
 
 ## Algorithm Design
-
+The algorithm borrowed from the mentioned paper 
 
 ## Findings
 
