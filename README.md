@@ -9,4 +9,4 @@ Given a graph database and a query graph, perform approximate graph matching to 
 ## Complexity
 Since the algorithmic complexity for beta signature is O(beta*n*n) due to matrix-vector multiplication, a large biological graph containing above 10000 nodes will take a long time to be processed and evaluated. Therefore biological graphs within this size limit were used. Graphs for gene expression and protein-protein interaction in the form of egde list were obtained for worm (C.elegans), fly (D.melanogaster) and humans (H.sapiens) from WormNet (https://www.inetbio.org/wormnet/downloadnetwork.php)
 
-/home/iiitd/Desktop/Screenshot from 2019-11-30 02-08-46.png
+![Data Source](/home/iiitd/Desktop/Screenshot from 2019-11-30 02-08-46.png)
