@@ -12,7 +12,8 @@ Since the algorithmic complexity for beta signature is O(beta*n*n) due to matrix
 ![Data Source](/datasrc.png)
 
 ## Algorithm Design
-The algorithm mentioned in the paper is followed. A random walk score is calculated for every vertex which represents global structure. An associated reset probability is defined using beta. Next, a beta signature is evaluated at multiple betas. From this, a beta similarity is obtained between 2 graphs. Using this score, a matching is performed.
+The algorithm mentioned in the paper is followed. A distance value is obtained based on the conceptual likeness and similarity wrt topology. A random walk score is calculated for every vertex which represents global structure. An associated reset probability is defined using beta. pt+1 = (1 - β) * pt + β * p0, where pt represents a vector whose ith element is the probability of being at node vi at time step t. Next, a beta signature is evaluated at multiple betas. From this, a beta similarity is obtained between 2 graphs. This score is used to perform graph matching. Candidate subgraphs are generated and pruned. These are matched with the query graph and k related graphs are obtained.
+ 
 
 ## Findings
 
