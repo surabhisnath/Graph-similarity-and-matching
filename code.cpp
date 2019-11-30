@@ -22,11 +22,11 @@ void __f(const char* names, Arg1&& arg1, Args&&... args){
 
 const int N = 1e6 + 100;
 const double EPS = 1e-10;
-const int BLOCKS = 100;
+const int BLOCKS = 500;
 
 typedef vector <vector <double> > v2d;
 
-v2d dataSetSig, querySig, sim;
+v2d sigDatasetGraph, sigQueryGraph, sim;
 bool inData[N], inQuery[N];
 int walkScore[N];
 bool vis[N];
@@ -121,21 +121,13 @@ v2d randomWalk(v2d &dataSetGraph, double beta) {
 		v2d tmp2 = mul(restart, beta);
 		v2d fin = add(tmp, tmp2);
 		cntr++;
-		// if(converged(fin, curr, 0.2)) {
-		// 	curr = fin;
-		// 	break;
-		// }
-		if(cntr >= 7) {
+		curr = fin;
+		if(cntr >= 5) {
 			break;
 		}
-		curr = fin;
 	}
 	cerr << "************************************************" << endl;
-	// trace(cntr);
-	// for(int i = 0; i < n; i++) {
-	// 	cout << curr[i][0] << ' ';
-	// }
-	// cout << endl;
+
 	return curr;
 }
 
@@ -154,15 +146,24 @@ v2d betaSignature(v2d dataSetGraph) {
 v2d betaSimilarity(v2d sigA, v2d sigB) {
 	v2d sim(n, vector <double> (n, 0));
 	for(int i = 0; i < n; i++) {
-		// for(int j = 0; j < n; j++) {
+		for(int j = 0; j < n; j++) {
 			double sum = 0;
 			for(int k = 0; k < betaValues.size(); k++) {
-				sum += (sigA[i][k] - sigB[i][k]) * (sigA[i][k] - sigB[i][k]) * BLOCKS * 1.5;
+				sum += (sigA[i][k] - sigB[j][k]) * (sigA[i][k] - sigB[j][k]) * BLOCKS * BLOCKS;
 			}
-			sim[i][i] = 1 - sqrt(sum);
-		// }
+			sim[i][j] = 1 - sqrt(sum);
+		}
 	}
 	return sim;
+}
+
+double betaSimilarityBetweenNodes(int u, int v, v2d sigA, v2d sigB) {
+	double sum = 0;
+	for(int k = 0; k < betaValues.size(); k++) {
+		sum += (sigA[u][k] - sigB[v][k]) * (sigA[u][k] - sigB[v][k]) * BLOCKS * BLOCKS;
+	}
+	return 1 - sqrt(sum);
+
 }
 
 int ct = 0;
@@ -299,16 +300,16 @@ void filter(set <int> &Vs, v2d queryGraph, double muv, double mus) {
 	}
 }
 
-void kMatch(v2d queryGraph, v2d candidateGraph, double lambda, priority_queue <pair <int, set <int> > > &pq) {
-	v2d sigQueryGraph = betaSignature(queryGraph);
+
+void kMatch(v2d queryGraph, v2d candidateGraph, double lambda, priority_queue <pair <double, set <int> > > &pq) {
+	
 	v2d sigCandidateGraph = betaSignature(candidateGraph);
-	v2d bsim = betaSimilarity(queryGraph, candidateGraph);
-	set <int> currNodes;
+	v2d bsim = betaSimilarity(sigQueryGraph, sigCandidateGraph);
+
+	trace("In kMatch");
+	set <int> nodes[n];
 	for(int i = 0; i < n; i++) {
-		if(inData[i] and inQuery[i]) {
-			currNodes.insert(i);
-			break;
-		}
+		nodes[i].insert(i);
 	}
 	// set <int> nodes[n];
 	// for(int i = 0; i < n; i++) {
@@ -316,42 +317,131 @@ void kMatch(v2d queryGraph, v2d candidateGraph, double lambda, priority_queue <p
 	// }
 	double sim[n];
 	memset(sim, 0, sizeof(sim));
-	// for(int i: )
-	for(int t = 2; t < 2 * nQuery; t++) {
-		set <int> prevNodes = currNodes;
-		for(int r: prevNodes) {
-			if(t % 2 == 0) {
-				double currMax = 0;
-				int k = -1;
-				for(int p = 0; p < n; p++) {
-					if(prevNodes.find(p) == prevNodes.end()) {
-						if(candidateGraph[r][p] != 0 and queryGraph[r][p] != 0) {
-							if(sim[r] + bsim[r][p] >= currMax) {
-								currMax = sim[p] + bsim[r][p];
-								k = p;
-							}
-						}
-					}
-				}
-				if(k != -1) {
-					sim[r] = currMax;
-					currNodes.insert(k);
-				}
+
+	vector <int> bothAdj[n];
+	for(int u = 0; u < n; u++) {
+		for(int v = 0; v < n; v++) {
+			if(candidateGraph[u][v] != 0 and queryGraph[u][v] != 0) {
+				bothAdj[u].push_back(v);
 			}
 		}
 	}
-	trace(currNodes.size());
-	pq.push({*max_element(sim, sim + n), currNodes});
+	// for(int i: )
+	for(int t = 2; t < nQuery; t++) {
+		if(t % 100 == 0) {
+			trace(t);
+			int biggestNodeSize = 0, biggestNode = 0;
+			for(int u = 0; u < n; u++) {
+				if(nodes[u].size() > biggestNodeSize) {
+					biggestNodeSize = nodes[u].size();
+					biggestNode = u;
+				}
+			}
+			trace(biggestNode, biggestNodeSize, sim[biggestNode]);
+		}
+		set <int> prevNodes[n];
+		for(int i = 0; i < n; i++) {
+			prevNodes[i] = nodes[i];
+		}
+		for(int r = 0; r < n; r++) {
+			double currMax = 0;
+			int k = -1;
+
+			for(int p: nodes[r]) {
+				for(int q: bothAdj[p]) {
+					if(nodes[r].find(q) == nodes[r].end() and sim[r] + bsim[q][q] >= currMax) {
+						currMax = sim[r] + bsim[q][q];
+						k = q;
+					}
+				}
+			}
+
+			// for(int p: bothAdj[r]) {
+			// 	if(sim[p] + bsim[r][p] >= currMax and nodes[p].find(r) == nodes[p].end()) {
+			// 		currMax = sim[p] + bsim[r][p] * (r == p ? 1: 0.5);
+			// 		k = p;
+			// 	}
+			// }
+			if(k != -1) {
+				nodes[r].insert(k);
+				sim[r] = currMax;
+			}
+		}
+
+	}
+	// trace(currNodes.size());
+	double maxSim = 0;
+	set <int> nodeList;
+	for(int i = 0; i < n; i++) {
+		if(sim[i] > maxSim) {
+			trace(i, sim[i]);
+			maxSim = sim[i];
+			nodeList = nodes[i];
+		}
+	}
+	trace(maxSim, nodeList.size());
+	pq.push({maxSim, nodeList});
 }
+
+// void kMatch(v2d queryGraph, v2d candidateGraph, double lambda, priority_queue <pair <int, set <int> > > &pq) {
+	
+// 	v2d sigCandidateGraph = betaSignature(candidateGraph);
+// 	v2d bsim = betaSimilarity(sigQueryGraph, sigCandidateGraph);
+// 	trace("In kMatch");
+// 	set <int> currNodes;
+// 	for(int i = 0; i < n; i++) {
+// 		if(inData[i] and inQuery[i]) {
+// 			currNodes.insert(i);
+// 			break;
+// 		}
+// 	}
+// 	// set <int> nodes[n];
+// 	// for(int i = 0; i < n; i++) {
+// 	// 	nodes[i].insert(i);
+// 	// }
+// 	double sim[n];
+// 	memset(sim, 0, sizeof(sim));
+// 	// for(int i: )
+// 	for(int t = 2; t < 2 * nQuery; t++) {
+// 		if(t % 100 == 0) {
+// 			trace(t, currNodes.size());
+// 		}
+// 		set <int> prevNodes = currNodes;
+// 		for(int r: prevNodes) {
+// 			if(t % 2 == 0) {
+// 				double currMax = 0;
+// 				int k = -1;
+// 				for(int p = 0; p < n; p++) {
+// 					if(prevNodes.find(p) == prevNodes.end()) {
+// 						if(candidateGraph[r][p] != 0 and queryGraph[r][p] != 0) {
+// 							if(sim[r] + bsim[r][p] >= currMax) {
+// 								currMax = sim[p] + bsim[r][p];
+// 								k = p;
+// 							}
+// 						}
+// 					}
+// 				}
+// 				if(k != -1) {
+// 					sim[r] = currMax;
+// 					currNodes.insert(k);
+// 				}
+// 			}
+// 		}
+// 	}
+// 	trace(currNodes.size());
+// 	pq.push({*max_element(sim, sim + n), currNodes});
+// }
 
 
 vector <set <int> > graphMatch(v2d dataSetGraph, v2d queryGraph, double k, double muv, double mus, double lambda) {
-	priority_queue <pair <int, set <int>> > pq;
+	priority_queue <pair <double, set <int>> > pq;
 	v2d sig = betaSignature(queryGraph);
 	int qr = getRadius(queryGraph);
-	for(int v = 0; v < n; v++) {
+	for(int v = 0, ct = 0; ct < 5; v = rand() % n) {
 		if(inData[v] and inQuery[v]) {
-			set <int> delta = deltaNeighbourHood(queryGraph, v, qr);
+			trace(ct);
+			ct++;
+			set <int> delta = deltaNeighbourHood(dataSetGraph, v, qr);
 			filter(delta, queryGraph, muv, mus);
 			v2d deltaGraph(n, vector <double> (n, 0));
 			for(int u: delta) {
@@ -368,19 +458,20 @@ vector <set <int> > graphMatch(v2d dataSetGraph, v2d queryGraph, double k, doubl
 	vector <set <int> > vec;
 	cout << "**********************************" << endl;
 	int kcnt = 5;
+	trace(pq.size());
 	while(!pq.empty()) {
 		auto x = pq.top();
 		pq.pop();
 		vec.push_back(x.second);
 		set <int> st = x.second;
-		int simValue = x.first;
-
+		double simValue = x.first;
 		cout << simValue / st.size() << ' ';
 		kcnt--;
 		if(kcnt < 0) {
 			break;
 		}
 	}
+	cout << endl;
 	return vec;
 }
 
@@ -388,6 +479,7 @@ int main() {
 	ios_base::sync_with_stdio(false);
 	cin.tie(NULL);
 	cout.tie(NULL);
+	srand(time(NULL));
 	vector <Edge> dataSetEdges, queryEdges;
 	set <string> st;
 	string inp;
@@ -428,16 +520,28 @@ int main() {
 	int qr = getRadius(queryGraph);
 	int dr = getRadius(dataSetGraph);
 
-	dataSetSig = betaSignature(dataSetGraph);
-	querySig = betaSignature(queryGraph);
+	sigDatasetGraph = betaSignature(dataSetGraph);
+	sigQueryGraph = betaSignature(queryGraph);
 
-	sim = betaSimilarity(dataSetSig, querySig);
+	sim = betaSimilarity(sigDatasetGraph, sigQueryGraph);
 
 	double sum = 0;
+	vector <double> shit;
 	for(int i = 0; i < n; i++) {
 		sum += sim[i][i];
+		shit.push_back(sim[i][i]);
+		// trace(sim[i][i]);
 	}
+	sort(shit.begin(), shit.end());
+	cout << shit[shit.size() / 2];
 	cout << (sum / (n * 1.0)) << endl;
 
-	vector <set <int> > vec = graphMatch(dataSetGraph, queryGraph, 0.4, 0.4, 0.4, 0.4);
+	vector <set <int> > vec = graphMatch(dataSetGraph, queryGraph, 0.80, 0.80, 0.80, 0.80);
+	for(int i = 0; i < vec.size(); i++) {
+		// most matching:
+		for(int u: vec[i]) {
+			cout << u << ' ';
+		}
+		cout << endl;
+	}
 }
